@@ -1,0 +1,27 @@
+on:
+  push:
+    tags:
+      - '*'
+
+name: Release Builds
+jobs:
+  macos:
+    name: MacOS
+    runs-on: macos-latest
+    steps:
+      - name: Disable Thumbnails
+        run: defaults write com.apple.screencapture show-thumbnail -bool FALSE
+
+      - uses: actions/checkout@v2
+      - run: |
+          GOOS=darwin
+          GORCH=amd64
+          go build -o build/robot-go-mac -ldflags "-w -s"
+          ./build/robot-go-mac screenshot testing-macos
+
+      - name: macos release build for github
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: 'build/robot-go-mac,testing-macos.png'
+          token: ${{ secrets.TOKEN }}
+          allowUpdates: true
