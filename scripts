@@ -1,1 +1,5 @@
-nodemon --exec go run main.go ../wow abs --signal SIGTERM
+nodemon --exec go run main.go ../invmovieconcept1 ../invmovieconcept1-mega --signal SIGTERM
+
+nodemon --exec go run main.go --signal SIGTERM
+
+nodemon --exec go run main.go init --signal SIGTERM
