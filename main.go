@@ -14,47 +14,70 @@ import (
 )
 
 func main() {
-
 	argsLen := len(os.Args)
 
-	if argsLen < 3 {
-		fmt.Println("Pass source and destination dumbass")
+	if argsLen < 4 {
+		fmt.Println("Pass source, destination & action")
 		return
 	}
 	source := strings.TrimSpace(os.Args[1])
 	destination := strings.TrimSpace(os.Args[2])
+	action := strings.TrimSpace(os.Args[3])
 
-	if argsLen == 4 {
+	if action == "change" {
 		start := time.Now()
-		fmt.Println(time.Since(start))
-
-		if strings.TrimSpace(os.Args[3]) != "init" {
-			fmt.Println("What's wrong with you only \"init\" is allowed. go read the readme or a english book")
-			return
+		changes := getGitChanges("")
+		var toSave string
+		for _, file := range changes {
+			if strings.Contains(source, file) {
+				toSave = file
+			}
 		}
-
+		destinationPath, _ := filepath.Abs(filepath.Join(destination, source))
+		content, err := ioutil.ReadFile(toSave)
+		if err != nil {
+			os.Mkdir(destinationPath, os.ModeDir)
+		} else {
+			ioutil.WriteFile(destinationPath, content, 0777)
+		}
+		fmt.Println(time.Since(start))
+		return
+	}
+	if action == "init" {
+		start := time.Now()
 		files, err := ioutil.ReadDir(source)
 		if err != nil {
 			log.Fatal(err)
 		}
 		syncList(files, source, destination, nil)
 		fmt.Println(time.Since(start))
-
 		return
 	}
+	if action == "git" {
+		start := time.Now()
 
-	start := time.Now()
-	var argstr []string
+		strpaths := getGitChanges(source)
 
-	if runtime.GOOS == "windows" {
-		argstr = []string{"/C", "cd", source, "&&", "git", "status", "-s"}
+		gitSyncChange(strpaths, source, destination)
+		fmt.Println(time.Since(start))
 	}
+}
 
+func getGitChanges(source string) []string {
+	var argstr []string
+	if runtime.GOOS == "windows" {
+		if source == "" {
+
+			argstr = []string{"/C", "git", "status", "-s"}
+		} else {
+			argstr = []string{"/C", "cd", source, "&&", "git", "status", "-s"}
+
+		}
+	}
 	list := exec.Command("cmd", argstr...)
 	stdout, _ := list.Output()
 	rawFiles := strings.Split(string(stdout), "\n")
 	var strpaths []string
-
 	for _, rawFile := range rawFiles {
 		parsed := strings.Split(strings.TrimSpace(rawFile), " ")
 		parsedSize := len(parsed)
@@ -62,14 +85,10 @@ func main() {
 		if parsedSize == 1 || actions == "D" {
 			continue
 		}
-
 		strpaths = append(strpaths, parsed[parsedSize-1])
 	}
 
-	// var files []os.FileInfo
-	gitSyncChange(strpaths, source, destination)
-
-	fmt.Println(time.Since(start))
+	return strpaths
 }
 
 func gitSyncChange(strpaths []string, source string, destination string) {
@@ -79,8 +98,6 @@ func gitSyncChange(strpaths []string, source string, destination string) {
 		file, err := ioutil.ReadFile(sourcePath)
 		if err != nil {
 			dirpath := slash(sourcePath + "/")
-			// println(err.Error())
-			// println("dirpath, err.Error()")
 			dirContent, direrr := ioutil.ReadDir(dirpath)
 			if direrr != nil {
 				log.Fatal(direrr.Error())
@@ -91,13 +108,10 @@ func gitSyncChange(strpaths []string, source string, destination string) {
 
 			var dirFiles []string
 			for _, dirFile := range dirContent {
-				// println("dirFile", dirFile.Name())
 				dirFiles = append(dirFiles, dirFile.Name())
 			}
 			dirSource := slash(source + "/" + path)
 			dirDestination := slash(destination + "/" + path)
-			println(dirSource)
-			println(dirDestination)
 			gitSyncChange(dirFiles, dirSource, dirDestination)
 			continue
 
@@ -108,11 +122,9 @@ func gitSyncChange(strpaths []string, source string, destination string) {
 
 func syncList(files []os.FileInfo, source string, destination string, baseIgnores []string) {
 	var ignores []string
-
 	if baseIgnores != nil {
 		ignores = append([]string{}, baseIgnores...)
 	}
-
 	gitIgnoreBytes, _ := ioutil.ReadFile(filepath.Join(source, ".gitignore"))
 	if gitIgnoreBytes != nil {
 		gitIgnoreRaw := strings.Split(string(gitIgnoreBytes), "\n")
@@ -155,7 +167,6 @@ func shouldIgnore(path string, patterns []string) bool {
 		if match || contains {
 			return true
 		}
-
 	}
 	return false
 }
