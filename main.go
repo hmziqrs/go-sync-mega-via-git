@@ -28,18 +28,13 @@ func main() {
 		start := time.Now()
 		changes := getGitChanges("")
 		var toSave string
+		parsedSource := slash(source)
 		for _, file := range changes {
-			if strings.Contains(source, file) {
+			if strings.Contains(parsedSource, file) {
 				toSave = file
 			}
 		}
-		destinationPath, _ := filepath.Abs(filepath.Join(destination, source))
-		content, err := ioutil.ReadFile(toSave)
-		if err != nil {
-			os.Mkdir(destinationPath, os.ModeDir)
-		} else {
-			ioutil.WriteFile(destinationPath, content, 0777)
-		}
+		gitSyncChange([]string{toSave}, "./", destination)
 		fmt.Println(time.Since(start))
 		return
 	}
@@ -85,7 +80,7 @@ func getGitChanges(source string) []string {
 		if parsedSize == 1 || actions == "D" {
 			continue
 		}
-		strpaths = append(strpaths, parsed[parsedSize-1])
+		strpaths = append(strpaths, slash(parsed[parsedSize-1]))
 	}
 
 	return strpaths
